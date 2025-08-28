@@ -57,6 +57,9 @@ func (dg *BackupDataGen) GenerateMultipleFilesCommand(dataGen *FileSizeTypeDataG
 		commands = append(commands,
 			fmt.Sprintf("head -c %d /dev/urandom > %s",
 				dataGen.GenerateRandomSize(), filePath))
+		if dataGen.IsDone() {
+			break
+		}
 	}
 
 	return strings.Join(commands, " && ")
@@ -77,7 +80,6 @@ func (dg *BackupDataGen) GenerateFileSizeType(sizeType *FileSizeTypeDataGen) []s
 		// Generate the files in the directory
 		cmd := dg.GenerateMultipleFilesCommand(sizeType, additionPath, dg.MaxFileCountPerDir)
 		cmds = append(cmds, cmd)
-
 	}
 
 	return cmds

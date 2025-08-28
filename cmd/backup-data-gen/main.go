@@ -10,14 +10,16 @@ import (
 	"github.com/tcordingly-godaddy/plat-v2-tools/pkg/utils/datagen"
 )
 
+var (
+	jobID                = flag.String("jobId", "", "Nomad job ID to execute commands on (optional)")
+	accountID            = flag.String("accountId", "", "Account ID to find all jobs for (optional)")
+	customCmd            = flag.String("cmd", "", "Custom command to run on the app (optional)")
+	sizeDistributionType = flag.String("size", "medium", "Size distribution for backup generation: medium or large (default: medium)")
+	baseRootDir          = flag.String("rootDir", "./wp-content/backup-gen", "Base root directory for backup generation (default: ./wp-content/backup-gen)")
+	maxFiles             = flag.Int("maxFiles", 30, "Maximum files per directory (default: 30)")
+)
+
 func main() {
-	// Parse command line flags
-	jobID := flag.String("jobId", "", "Nomad job ID to execute commands on (optional)")
-	accountID := flag.String("accountId", "", "Account ID to find all jobs for (optional)")
-	customCmd := flag.String("cmd", "", "Custom command to run on the app (optional)")
-	sizeDistributionType := flag.String("size", "medium", "Size distribution for backup generation: medium or large (default: medium)")
-	baseRootDir := flag.String("rootDir", "./wp-content/backup-gen", "Base root directory for backup generation (default: ./wp-content/backup-gen)")
-	maxFiles := flag.Int("maxFiles", 30, "Maximum files per directory (default: 30)")
 	flag.Parse()
 
 	// Create Nomad client
