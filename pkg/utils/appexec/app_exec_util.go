@@ -5,7 +5,9 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"regexp"
+	"time"
 
 	"github.com/hashicorp/nomad/api"
 )
@@ -66,8 +68,15 @@ func (ae *AppExec) GetAppJobs(accountId string) ([]string, error) {
 
 // filterJobIDsByAccountId filters job IDs by account ID
 func (ae *AppExec) filterJobIDsByAccountId(jobIDs []string, accountId string) []string {
+	start := time.Now()
 	filteredJobIDs := []string{}
+	filteredNum := 0
+	totalNum := len(jobIDs)
 	for _, jobID := range jobIDs {
+		filteredNum += 1
+		if filteredNum%50 == 0 {
+			log.Printf("Filtered %d/%d jobs so far...", filteredNum, totalNum)
+		}
 		job, _, err := ae.NomadClient.Jobs().Info(jobID, &api.QueryOptions{
 			Namespace:  "sites",
 			AllowStale: true,
@@ -81,6 +90,7 @@ func (ae *AppExec) filterJobIDsByAccountId(jobIDs []string, accountId string) []
 			filteredJobIDs = append(filteredJobIDs, jobID)
 		}
 	}
+	fmt.Printf("Completed filtering jobs by account ID %s in %v. Found %d matching jobs out of %d total jobs.\n", accountId, time.Since(start), len(filteredJobIDs), totalNum)
 	return filteredJobIDs
 }
 
@@ -186,7 +196,7 @@ func buildExecAsUserCommand(cmd string) []string {
 	}
 
 	execCmd = append(execCmd, cmd)
-	log.Printf("execCmd: %v", execCmd)
+	slog.Debug("execCmd", "command", execCmd)
 
 	return execCmd
 }
