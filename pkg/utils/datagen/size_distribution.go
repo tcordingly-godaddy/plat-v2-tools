@@ -3,10 +3,10 @@ package datagen
 import "math/rand"
 
 const (
-	MaxMedTotalSize   = int64(1024 * 1024 * 2000)      // 2GB
-	MinMedTotalSize   = int64(1024 * 1024 * 300)       // 300MB
-	MaxLargeTotalSize = int64(1024 * 1024 * 1024 * 10) // 10GB
-	MinLargeTotalSize = int64(1024 * 1024 * 1024 * 5)  // 5GB
+	TotalSize300MB = int64(1024 * 1024 * 300)       // 300MB
+	TotalSize2GB   = int64(1024 * 1024 * 2000)      // 2GB
+	TotalSize5GB   = int64(1024 * 1024 * 1024 * 5)  // 5GB
+	TotalSize10GB  = int64(1024 * 1024 * 1024 * 10) // 10GB
 )
 
 // FileSizeDistribution defines how data should be distributed across different file size categories
@@ -44,7 +44,7 @@ func (f *FileSizeTypeDataGen) IsDone() bool {
 
 func MediumSiteSizeDistributionConfig() *FileSizeDistribution {
 	// Generate a random size between MinMedTotalSize and MaxMedTotalSize
-	size := rand.Intn(int(MaxMedTotalSize-MinMedTotalSize+1)) + int(MinMedTotalSize)
+	size := rand.Intn(int(TotalSize2GB-TotalSize300MB+1)) + int(TotalSize300MB)
 
 	return &FileSizeDistribution{
 		SizeDistributions: []*FileSizeTypeDataGen{
@@ -78,7 +78,7 @@ func MediumSiteSizeDistributionConfig() *FileSizeDistribution {
 
 func LargeSiteSizeDistributionConfig() *FileSizeDistribution {
 	// Generate a random size between MinLargeTotalSize and MaxLargeTotalSize
-	size := rand.Intn(int(MaxLargeTotalSize-MinLargeTotalSize+1)) + int(MinLargeTotalSize)
+	size := rand.Intn(int(TotalSize10GB-TotalSize5GB+1)) + int(TotalSize5GB)
 
 	return &FileSizeDistribution{
 		SizeDistributions: []*FileSizeTypeDataGen{
@@ -110,12 +110,85 @@ func LargeSiteSizeDistributionConfig() *FileSizeDistribution {
 	}
 }
 
+// Generate over 1 million files
+func P95FileCountSizeDistributionConfig() *FileSizeDistribution {
+	// Generate a random size between MinMedTotalSize and MaxMedTotalSize
+	return &FileSizeDistribution{
+		SizeDistributions: []*FileSizeTypeDataGen{
+			{
+				Name: "p95",
+				DataGen: &DataGen{
+					MinSizeInBytes: 1024 * 2, // 2kB
+					MaxSizeInBytes: 1024 * 5, // 5kB
+				},
+				MaxTotalSize: int64(rand.Intn(int(TotalSize5GB-TotalSize2GB+1)) + int(TotalSize2GB)),
+			},
+		},
+	}
+}
+
+func P90FileCountSizeDistributionConfig() *FileSizeDistribution {
+	// Generate a random size between MinMedTotalSize and MaxMedTotalSize
+	return &FileSizeDistribution{
+		SizeDistributions: []*FileSizeTypeDataGen{
+			{
+				Name: "p90",
+				DataGen: &DataGen{
+					MinSizeInBytes: 1024 * 20, // 20kB
+					MaxSizeInBytes: 1024 * 50, // 50kB
+				},
+				MaxTotalSize: int64(rand.Intn(int(TotalSize5GB-TotalSize2GB+1)) + int(TotalSize2GB)),
+			},
+		},
+	}
+}
+
+func P75FileCountSizeDistributionConfig() *FileSizeDistribution {
+	// Generate a random size between MinMedTotalSize and MaxMedTotalSize
+	return &FileSizeDistribution{
+		SizeDistributions: []*FileSizeTypeDataGen{
+			{
+				Name: "p75",
+				DataGen: &DataGen{
+					MinSizeInBytes: 1024 * 100, // 100kB
+					MaxSizeInBytes: 1024 * 250, // 250kB
+				},
+				MaxTotalSize: int64(rand.Intn(int(TotalSize5GB-TotalSize2GB+1)) + int(TotalSize2GB)),
+			},
+		},
+	}
+}
+
+func P50FileCountSizeDistributionConfig() *FileSizeDistribution {
+	// Generate a random size between MinMedTotalSize and MaxMedTotalSize
+	return &FileSizeDistribution{
+		SizeDistributions: []*FileSizeTypeDataGen{
+			{
+				Name: "p50",
+				DataGen: &DataGen{
+					MinSizeInBytes: 1024 * 175, // 175kB
+					MaxSizeInBytes: 1024 * 450, // 450kB
+				},
+				MaxTotalSize: int64(rand.Intn(int(TotalSize5GB-TotalSize2GB+1)) + int(TotalSize2GB)),
+			},
+		},
+	}
+}
+
 func NewFileSizeDistribution(sizeChoice string) *FileSizeDistribution {
 	switch sizeChoice {
 	case "medium":
 		return MediumSiteSizeDistributionConfig()
 	case "large":
 		return LargeSiteSizeDistributionConfig()
+	case "p95":
+		return P95FileCountSizeDistributionConfig()
+	case "p90":
+		return P90FileCountSizeDistributionConfig()
+	case "p75":
+		return P75FileCountSizeDistributionConfig()
+	case "p50":
+		return P50FileCountSizeDistributionConfig()
 	default:
 		return MediumSiteSizeDistributionConfig()
 	}
