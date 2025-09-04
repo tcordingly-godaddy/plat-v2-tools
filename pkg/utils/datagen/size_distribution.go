@@ -4,6 +4,7 @@ import "math/rand"
 
 const (
 	TotalSize300MB = int64(1024 * 1024 * 300)       // 300MB
+	TotalSize500MB = int64(1024 * 1024 * 500)       // 500MB
 	TotalSize2GB   = int64(1024 * 1024 * 2000)      // 2GB
 	TotalSize5GB   = int64(1024 * 1024 * 1024 * 5)  // 5GB
 	TotalSize10GB  = int64(1024 * 1024 * 1024 * 10) // 10GB
@@ -175,6 +176,22 @@ func P50FileCountSizeDistributionConfig() *FileSizeDistribution {
 	}
 }
 
+func FileCountSizeDistributionConfig() *FileSizeDistribution {
+	// Generate a random size between MinMedTotalSize and MaxMedTotalSize
+	return &FileSizeDistribution{
+		SizeDistributions: []*FileSizeTypeDataGen{
+			{
+				Name: "fileCount",
+				DataGen: &DataGen{
+					MinSizeInBytes: 1024 * 5,  // 5	kB
+					MaxSizeInBytes: 1024 * 50, // 50 kB
+				},
+				MaxTotalSize: int64(rand.Intn(int(TotalSize500MB-TotalSize300MB+1)) + int(TotalSize300MB)),
+			},
+		},
+	}
+}
+
 func NewFileSizeDistribution(sizeChoice string) *FileSizeDistribution {
 	switch sizeChoice {
 	case "medium":
@@ -189,6 +206,8 @@ func NewFileSizeDistribution(sizeChoice string) *FileSizeDistribution {
 		return P75FileCountSizeDistributionConfig()
 	case "p50":
 		return P50FileCountSizeDistributionConfig()
+	case "fileCount":
+		return FileCountSizeDistributionConfig()
 	default:
 		return MediumSiteSizeDistributionConfig()
 	}

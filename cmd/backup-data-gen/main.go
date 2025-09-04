@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/nomad/api"
@@ -52,51 +53,19 @@ func main() {
 	appExec := appexec.NewAppExec(nomadClient, *concurrency)
 
 	// Determine the command to execute
-	// With a jobID and customCmd, we can just run a single command on the app
-	if *jobID != "" && *customCmd != "" {
-		runSingleExec(appExec, *jobID, *customCmd)
-		return
-	}
-
-	if *customCmd != "" {
-		var jobs []string
-
-		if *jobIDsFile != "" {
-			// Read job IDs from file
-			slog.Info("Running custom command on jobs from file", "customCmd", *customCmd, "jobIDsFile", *jobIDsFile)
-			jobs, err = readJobIDsFromFile(*jobIDsFile)
-			if err != nil {
-				log.Fatalf("Error reading job IDs from file: %v", err)
-			}
-		} else {
-			// Get jobs from account ID
-			slog.Info("Running custom command on all jobs", "customCmd", *customCmd)
-			jobs, err = appExec.GetAppJobs(*accountID)
-			if err != nil {
-				log.Fatalf("Error getting app jobs: %v", err)
-			}
-		}
-
-		if len(jobs) == 0 {
-			log.Fatalf("No jobs found")
-		}
-
-		for _, job := range jobs {
-			runSingleExec(appExec, job, *customCmd)
-		}
-		return
-	}
-
-	// With a jobID, we can generate the backup data and run it on the app
-	backupsDataGen := datagen.NewBackupDataGen(*baseRootDir, *maxFiles, *sizeDistributionType)
+	// With a jobID specified, we can just run a single command on the app
 	if *jobID != "" {
-		runMultipleExec(appExec, *jobID, backupsDataGen.GenerateBackupDataOnApp())
+		if *customCmd != "" {
+			runSingleExec(appExec, *jobID, *customCmd)
+		} else {
+			backupsDataGen := datagen.NewBackupDataGen(*baseRootDir, *maxFiles, *sizeDistributionType)
+			runSingleExec(appExec, *jobID, backupsDataGen.GenerateBackupDataOnApp())
+		}
 		return
 	}
 
-	// Else Run full backup data for all jobs, either from file or account ID
+	// Else get job ids and run stream the command(s) to the app for each job
 	var jobs []string
-
 	if *jobIDsFile != "" {
 		// Read job IDs from file
 		slog.Info("Running backup data generation on jobs from file", "jobIDsFile", *jobIDsFile)
@@ -116,9 +85,18 @@ func main() {
 	}
 
 	//TODO add context for signal handling
-	run(appExec, jobs, backupsDataGen)
-	slog.Info(fmt.Sprintf("Completed data generation for %s type on %d jobs\n", *sizeDistributionType, len(jobs)))
-	slog.Info(fmt.Sprintf("Total run time with concurrency of %d: %v\n", *concurrency, time.Since(start)))
+	var dataGenFunc func() string
+	if *customCmd != "" {
+		dataGenFunc = func() string {
+			return *customCmd
+		}
+	} else {
+		backupsDataGen := datagen.NewBackupDataGen(*baseRootDir, *maxFiles, *sizeDistributionType)
+		dataGenFunc = backupsDataGen.GenerateBackupDataOnApp
+	}
+	run(appExec, jobs, dataGenFunc)
+	slog.Info(fmt.Sprintf("Completed data generation for %s type on %d jobs", *sizeDistributionType, len(jobs)))
+	slog.Info(fmt.Sprintf("Total run time with concurrency of %d: %v", *concurrency, time.Since(start)))
 }
 
 // readJobIDsFromFile reads job IDs from a file, one per line
@@ -150,33 +128,27 @@ func readJobIDsFromFile(filename string) ([]string, error) {
 	return jobIDs, nil
 }
 
-func run(appExec *appexec.AppExec, jobs []string, backupsDataGen *datagen.BackupDataGen) {
+func run(appExec *appexec.AppExec, jobs []string, dataGenFunc func() string) {
 	slog.Info("Running data generation on jobs", "numJobs", len(jobs))
+
+	wg := sync.WaitGroup{}
 	currentJobCount := 0
 	for _, job := range jobs {
 		currentJobCount++
 		slog.Info("Starting data generation on job", "jobID", job, "currentJobCount", currentJobCount, "totalJobs", len(jobs))
-		cmds := backupsDataGen.GenerateBackupDataOnApp()
-		runMultipleExec(appExec, job, cmds)
-	}
-}
-
-func runMultipleExec(appExec *appexec.AppExec, jobID string, cmds []string) {
-	slog.Info("Running data generation commands", "jobID", jobID, "numCommands", len(cmds))
-	cmdCount := 0
-	for _, cmd := range cmds {
+		cmds := dataGenFunc()
 		appExec.WaitForAppExec()
-		cmdCount++
-		if cmdCount%10 == 0 {
-			slog.Info("Progress on job", "jobID", jobID, "commandsCompleted", cmdCount, "totalCommands", len(cmds))
-		}
+		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			defer appExec.ReleaseAppExec()
 			// blocking call to sync the service
-			runSingleExec(appExec, jobID, cmd)
+			slog.Info("Starting exec to job", "jobID", job)
+			runSingleExec(appExec, job, cmds)
+			slog.Info("Finished exec to job", "jobID", job)
 		}()
 	}
-	slog.Info("Finished generating data on job", "jobID", jobID)
+	wg.Wait()
 }
 
 func runSingleExec(appExec *appexec.AppExec, jobID string, command string) {
@@ -188,9 +160,9 @@ func runSingleExec(appExec *appexec.AppExec, jobID string, command string) {
 	}
 	slog.Debug("Command executed successfully on job", "jobID", jobID, "exitCode", resp.ExitCode)
 	if resp.Stdout != "" {
-		slog.Debug(fmt.Sprintf("Stdout for job %s: %s", jobID, resp.Stdout))
+		slog.Info(fmt.Sprintf("Stdout for job %s: %s", jobID, resp.Stdout))
 	}
 	if resp.Stderr != "" {
-		slog.Debug(fmt.Sprintf("Stderr for job %s: %s", jobID, resp.Stderr))
+		slog.Error(fmt.Sprintf("Stderr for job %s: %s", jobID, resp.Stderr))
 	}
 }

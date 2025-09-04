@@ -194,8 +194,8 @@ func TestGenerateMultipleFilesCommand(t *testing.T) {
 				t.Errorf("Command should contain 'mkdir -p %s'", expectedTargetDir)
 			}
 
-			// Count command parts separated by " && "
-			commands := strings.Split(cmd, " && ")
+			// Count command parts separated by newlines
+			commands := strings.Split(cmd, "\n")
 			if len(commands) < tt.minCommands {
 				t.Errorf("Expected at least %d commands, got %d", tt.minCommands, len(commands))
 			}
@@ -246,24 +246,30 @@ func TestGenerateBackupDataOnApp(t *testing.T) {
 			gen := NewBackupDataGen(tt.rootDir, tt.maxFiles, tt.sizeChoice)
 			cmds := gen.GenerateBackupDataOnApp()
 
-			if len(cmds) < tt.expectedMinCmds {
-				t.Errorf("Expected at least %d commands, got %d", tt.expectedMinCmds, len(cmds))
+			if len(cmds) == 0 {
+				t.Error("Expected generated commands, got empty string")
 			}
 
-			// Check that all commands are valid and contain expected components
-			for i, cmd := range cmds {
-				if cmd == "" {
-					t.Errorf("Command %d is empty", i)
-					continue
+			// Split commands by newlines and check each one
+			cmdLines := strings.Split(cmds, "\n")
+			nonEmptyLines := 0
+			for _, line := range cmdLines {
+				if strings.TrimSpace(line) != "" {
+					nonEmptyLines++
 				}
+			}
 
-				if !strings.Contains(cmd, "mkdir -p") {
-					t.Errorf("Command %d should contain 'mkdir -p'", i)
-				}
+			if nonEmptyLines < tt.expectedMinCmds {
+				t.Errorf("Expected at least %d non-empty command lines, got %d", tt.expectedMinCmds, nonEmptyLines)
+			}
 
-				if !strings.Contains(cmd, tt.rootDir) {
-					t.Errorf("Command %d should contain root directory %s", i, tt.rootDir)
-				}
+			// Check that commands contain expected components
+			if !strings.Contains(cmds, "mkdir -p") {
+				t.Error("Commands should contain 'mkdir -p'")
+			}
+
+			if !strings.Contains(cmds, tt.rootDir) {
+				t.Errorf("Commands should contain root directory %s", tt.rootDir)
 			}
 		})
 	}
@@ -423,29 +429,35 @@ func TestGenerateFileSizeType(t *testing.T) {
 
 			cmds := gen.GenerateFileSizeType(sizeType)
 
-			// Should have at least the expected minimum commands
-			if len(cmds) < tt.expectedMinCmds {
-				t.Errorf("Expected at least %d commands, got %d", tt.expectedMinCmds, len(cmds))
+			// Check that we got some commands
+			if len(cmds) == 0 {
+				t.Error("Expected generated commands, got empty string")
+			}
+
+			// Split commands by newlines and count non-empty lines
+			cmdLines := strings.Split(cmds, "\n")
+			nonEmptyLines := 0
+			for _, line := range cmdLines {
+				if strings.TrimSpace(line) != "" {
+					nonEmptyLines++
+				}
+			}
+
+			if nonEmptyLines < tt.expectedMinCmds {
+				t.Errorf("Expected at least %d non-empty command lines, got %d", tt.expectedMinCmds, nonEmptyLines)
 			}
 
 			// All commands should be valid and contain expected components
-			for i, cmd := range cmds {
-				if cmd == "" {
-					t.Errorf("Command %d is empty", i)
-					continue
-				}
+			if !strings.Contains(cmds, "mkdir -p") {
+				t.Error("Commands should contain 'mkdir -p'")
+			}
 
-				if !strings.Contains(cmd, "mkdir -p") {
-					t.Errorf("Command %d should contain 'mkdir -p'", i)
-				}
+			if !strings.Contains(cmds, tt.rootDir) {
+				t.Errorf("Commands should contain root directory %s", tt.rootDir)
+			}
 
-				if !strings.Contains(cmd, tt.rootDir) {
-					t.Errorf("Command %d should contain root directory %s", i, tt.rootDir)
-				}
-
-				if !strings.Contains(cmd, tt.sizeTypeName) {
-					t.Errorf("Command %d should contain size type name %s", i, tt.sizeTypeName)
-				}
+			if !strings.Contains(cmds, tt.sizeTypeName) {
+				t.Errorf("Commands should contain size type name %s", tt.sizeTypeName)
 			}
 
 			// Check that the size type is done after generation
@@ -489,8 +501,21 @@ func TestGenerateFileSizeTypeEdgeCases(t *testing.T) {
 
 			cmds := gen.GenerateFileSizeType(sizeType)
 
-			if len(cmds) != tt.expectedCmds {
-				t.Errorf("Expected %d commands, got %d", tt.expectedCmds, len(cmds))
+			// Count non-empty command lines
+			cmdLines := strings.Split(cmds, "\n")
+			nonEmptyLines := 0
+			for _, line := range cmdLines {
+				if strings.TrimSpace(line) != "" {
+					nonEmptyLines++
+				}
+			}
+
+			if tt.expectedCmds == 0 {
+				if len(strings.TrimSpace(cmds)) != 0 {
+					t.Errorf("Expected empty commands string, got %d non-empty lines", nonEmptyLines)
+				}
+			} else if nonEmptyLines < tt.expectedCmds {
+				t.Errorf("Expected at least %d non-empty command lines, got %d", tt.expectedCmds, nonEmptyLines)
 			}
 		})
 	}

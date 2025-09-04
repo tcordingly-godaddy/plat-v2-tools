@@ -62,11 +62,11 @@ func (dg *BackupDataGen) GenerateMultipleFilesCommand(dataGen *FileSizeTypeDataG
 		}
 	}
 
-	return strings.Join(commands, " && ")
+	return strings.Join(commands, "\n")
 }
 
 // GenerateFileSizeType generates the commands for creating a directories and files for a given size distribution type
-func (dg *BackupDataGen) GenerateFileSizeType(sizeType *FileSizeTypeDataGen) []string {
+func (dg *BackupDataGen) GenerateFileSizeType(sizeType *FileSizeTypeDataGen) string {
 	var cmds []string
 
 	basePath := sizeType.Name
@@ -82,12 +82,12 @@ func (dg *BackupDataGen) GenerateFileSizeType(sizeType *FileSizeTypeDataGen) []s
 		cmds = append(cmds, cmd)
 	}
 
-	return cmds
+	return strings.Join(cmds, "\n")
 }
 
 // GenerateBackupDataOnApp generates all the commands to create the desired file distribution on the app
 // No data is actually generated until the commands are executed
-func (dg *BackupDataGen) GenerateBackupDataOnApp() []string {
+func (dg *BackupDataGen) GenerateBackupDataOnApp() string {
 	var backupDataGenCmds []string
 
 	fileSizesTemplate := NewFileSizeDistribution(dg.SizeChoice)
@@ -95,10 +95,10 @@ func (dg *BackupDataGen) GenerateBackupDataOnApp() []string {
 	for _, sizeType := range fileSizesTemplate.SizeDistributions {
 
 		cmds := dg.GenerateFileSizeType(sizeType)
-		backupDataGenCmds = append(backupDataGenCmds, cmds...)
+		backupDataGenCmds = append(backupDataGenCmds, cmds)
 	}
 
-	return backupDataGenCmds
+	return strings.Join(backupDataGenCmds, "\n")
 }
 
 func GenerateRandomName() string {

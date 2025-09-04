@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log"
-	"log/slog"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/nomad/api"
@@ -15,7 +16,7 @@ import (
 const (
 	AppUnitTaskName = "app-unit"
 	CustomerUser    = "customer"
-	ExecConcurrency = 5 // max concurrent execs
+	ExecConcurrency = 15 // max concurrent execs
 )
 
 // AppExec is a utility for executing commands on app containers to run commands as customer user
@@ -126,14 +127,15 @@ func (ae *AppExec) ExecuteCommandOnApp(ctx context.Context, jobID, command strin
 		return nil, fmt.Errorf("failed to get allocation ID: %w", err)
 	}
 	// Build the command to run as the specified user
-	execCommand := buildExecAsUserCommand(command)
+	execCommand := execAsCustomerCommand()
 
+	reader := strings.NewReader(command)
 	// Execute the command on the allocation
-	return ae.ExecCommandOnAllocation(ctx, allocID, execCommand)
+	return ae.ExecCommandOnAllocation(ctx, allocID, execCommand, reader)
 }
 
 // ExecCommandOnAllocation executes a command on a Nomad allocation
-func (ae *AppExec) ExecCommandOnAllocation(ctx context.Context, allocID string, command []string) (*ExecResponse, error) {
+func (ae *AppExec) ExecCommandOnAllocation(ctx context.Context, allocID string, command []string, reader io.Reader) (*ExecResponse, error) {
 	// Get allocation info to verify it's running
 	alloc, _, err := ae.NomadClient.Allocations().Info(allocID, &api.QueryOptions{
 		Namespace:  "sites",
@@ -147,7 +149,6 @@ func (ae *AppExec) ExecCommandOnAllocation(ctx context.Context, allocID string, 
 	}
 
 	// Execute the command
-	stdin := bytes.NewBufferString("")
 	stdout := new(bytes.Buffer)
 	stderr := new(bytes.Buffer)
 
@@ -157,7 +158,7 @@ func (ae *AppExec) ExecCommandOnAllocation(ctx context.Context, allocID string, 
 		AppUnitTaskName,
 		false, // allocate pty
 		command,
-		stdin,
+		reader,
 		stdout,
 		stderr,
 		nil,
@@ -185,18 +186,13 @@ type ExecResponse struct {
 }
 
 // buildExecAsUserCommand creates the command array to execute as a specific user
-func buildExecAsUserCommand(cmd string) []string {
-
+func execAsCustomerCommand() []string {
 	execCmd := []string{
 		"su",
 		"-l",
 		CustomerUser,
-		"/bin/bash",
 		"-c",
+		"/bin/bash",
 	}
-
-	execCmd = append(execCmd, cmd)
-	slog.Debug("execCmd", "command", execCmd)
-
 	return execCmd
 }
