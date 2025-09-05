@@ -16,7 +16,7 @@ import (
 const (
 	AppUnitTaskName = "app-unit"
 	CustomerUser    = "customer"
-	ExecConcurrency = 15 // max concurrent execs
+	ExecConcurrency = 5 // max concurrent execs
 )
 
 // AppExec is a utility for executing commands on app containers to run commands as customer user

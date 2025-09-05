@@ -167,8 +167,8 @@ func P50FileCountSizeDistributionConfig() *FileSizeDistribution {
 			{
 				Name: "p50",
 				DataGen: &DataGen{
-					MinSizeInBytes: 1024 * 175, // 175kB
-					MaxSizeInBytes: 1024 * 450, // 450kB
+					MinSizeInBytes: 1024 * 10,  // 10kB
+					MaxSizeInBytes: 1024 * 600, // 600kB
 				},
 				MaxTotalSize: int64(rand.Intn(int(TotalSize5GB-TotalSize2GB+1)) + int(TotalSize2GB)),
 			},
